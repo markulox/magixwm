@@ -3,6 +3,7 @@ const wl = @import("wayland").server.wl;
 const wlr = @import("wlroots");
 const xkb = @import("xkbcommon");
 const Server = @import("../server.zig").Server;
+const keybind = @import("keybind.zig");
 
 const gpa = std.heap.c_allocator;
 
@@ -57,7 +58,7 @@ pub const Keyboard = struct {
         var handled = false;
         if (wlr_keyboard.getModifiers().alt and event.state == .pressed) {
             for (wlr_keyboard.xkb_state.?.keyGetSyms(keycode)) |sym| {
-                if (keyboard.server.handleKeybind(sym)) {
+                if (keybind.handle(keyboard.server, sym)) {
                     handled = true;
                     break;
                 }
@@ -81,4 +82,5 @@ pub const Keyboard = struct {
 
         gpa.destroy(keyboard);
     }
+
 };

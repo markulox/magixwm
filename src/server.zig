@@ -4,7 +4,6 @@ const posix = std.posix;
 const wl = @import("wayland").server.wl;
 
 const wlr = @import("wlroots");
-const xkb = @import("xkbcommon");
 
 const gpa = std.heap.c_allocator;
 
@@ -410,22 +409,5 @@ pub const Server = struct {
     fn cursorFrame(listener: *wl.Listener(*wlr.Cursor), _: *wlr.Cursor) void {
         const server: *Server = @fieldParentPtr("cursor_frame", listener);
         server.seat.pointerNotifyFrame();
-    }
-
-    /// Assumes the modifier used for compositor keybinds is pressed
-    /// Returns true if the key was handled
-    pub fn handleKeybind(server: *Server, key: xkb.Keysym) bool {
-        switch (@intFromEnum(key)) {
-            // Exit the compositor
-            xkb.Keysym.Escape => server.wl_server.terminate(),
-            // Focus the next toplevel in the stack, pushing the current top to the back
-            xkb.Keysym.F1 => {
-                if (server.toplevels.length() < 2) return true;
-                const toplevel: *Toplevel = @fieldParentPtr("link", server.toplevels.link.prev.?);
-                server.requestFocusView(toplevel, toplevel.xdg_toplevel.base.surface);
-            },
-            else => return false,
-        }
-        return true;
     }
 };
