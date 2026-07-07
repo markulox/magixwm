@@ -9,6 +9,7 @@ const xkb = @import("xkbcommon");
 
 const gpa = std.heap.c_allocator;
 
+const dbgprint = std.debug.print;
 
 pub const Toplevel = struct {
     server: *Server,
@@ -70,6 +71,7 @@ pub const Toplevel = struct {
         listener: *wl.Listener(*wlr.XdgToplevel.event.Move),
         _: *wlr.XdgToplevel.event.Move,
     ) void {
+        dbgprint("request move", .{});
         const toplevel: *Toplevel = @fieldParentPtr("request_move", listener);
         const server = toplevel.server;
         server.grabbed_view = toplevel;

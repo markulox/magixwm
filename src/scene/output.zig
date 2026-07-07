@@ -51,7 +51,6 @@ pub const Output = struct {
         event: *wlr.Output.event.RequestState,
     ) void {
         const output: *Output = @fieldParentPtr("request_state", listener);
-
         _ = output.wlr_output.commitState(event.state);
     }
 
