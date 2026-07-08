@@ -42,6 +42,13 @@ pub const Keyboard = struct {
         server.keyboards.append(keyboard);
     }
 
+    fn updateSeatCapabilities(server: *Server) void {
+        server.seat.setCapabilities(.{
+            .pointer = true,
+            .keyboard = server.keyboards.length() > 0,
+        });
+    }
+
     fn handleModifiers(listener: *wl.Listener(*wlr.Keyboard), wlr_keyboard: *wlr.Keyboard) void {
         const keyboard: *Keyboard = @fieldParentPtr("modifiers", listener);
         keyboard.server.seat.setKeyboard(wlr_keyboard);
@@ -73,6 +80,7 @@ pub const Keyboard = struct {
 
     fn handleDestroy(listener: *wl.Listener(*wlr.InputDevice), _: *wlr.InputDevice) void {
         const keyboard: *Keyboard = @fieldParentPtr("destroy", listener);
+        const server = keyboard.server;
 
         keyboard.link.remove();
 
@@ -80,7 +88,13 @@ pub const Keyboard = struct {
         keyboard.key.link.remove();
         keyboard.destroy.link.remove();
 
+        if (server.keyboards.first()) |next_keyboard| {
+            server.seat.setKeyboard(next_keyboard.device.toKeyboard());
+        } else {
+            server.seat.setKeyboard(null);
+        }
+        updateSeatCapabilities(server);
+
         gpa.destroy(keyboard);
     }
-
 };

@@ -6,6 +6,7 @@ const wl = @import("wayland").server.wl;
 
 const wlr = @import("wlroots");
 const xkb = @import("xkbcommon");
+const Decoration = @import("decoration.zig").Decoration;
 
 const gpa = std.heap.c_allocator;
 
@@ -16,7 +17,7 @@ pub const Toplevel = struct {
     link: wl.list.Link = undefined,
     xdg_toplevel: *wlr.XdgToplevel,
     scene_tree: *wlr.SceneTree,
-    title_bar: ?*wlr.SceneRect = null,
+    decoration: Decoration = .{},
 
     x: i32 = 2,
     y: i32 = 40,
@@ -34,13 +35,7 @@ pub const Toplevel = struct {
             _ = toplevel.xdg_toplevel.setSize(0, 0);
         }
 
-        if (toplevel.title_bar) |bar| {
-            const width = toplevel.xdg_toplevel.base.geometry.width;
-            if (width > 0) {
-                bar.setSize(width, 10);
-            }
-            bar.node.setPosition(0, -10);
-        }
+        toplevel.decoration.handleCommit(toplevel.xdg_toplevel);
     }
 
     fn handleMap(listener: *wl.Listener(void)) void {
@@ -63,6 +58,7 @@ pub const Toplevel = struct {
         toplevel.destroy.link.remove();
         toplevel.request_move.link.remove();
         toplevel.request_resize.link.remove();
+        toplevel.decoration.deinit();
 
         gpa.destroy(toplevel);
     }
@@ -73,11 +69,7 @@ pub const Toplevel = struct {
     ) void {
         dbgprint("request move", .{});
         const toplevel: *Toplevel = @fieldParentPtr("request_move", listener);
-        const server = toplevel.server;
-        server.grabbed_view = toplevel;
-        server.cursor_mode = .move;
-        server.grab_x = server.cursor.x - @as(f64, @floatFromInt(toplevel.x));
-        server.grab_y = server.cursor.y - @as(f64, @floatFromInt(toplevel.y));
+        toplevel.server.cursor.beginMove(toplevel);
     }
 
     fn handleRequestResize(
@@ -85,21 +77,6 @@ pub const Toplevel = struct {
         event: *wlr.XdgToplevel.event.Resize,
     ) void {
         const toplevel: *Toplevel = @fieldParentPtr("request_resize", listener);
-        const server = toplevel.server;
-
-        server.grabbed_view = toplevel;
-        server.cursor_mode = .resize;
-        server.resize_edges = event.edges;
-
-        const box = toplevel.xdg_toplevel.base.geometry;
-
-        const border_x = toplevel.x + box.x + if (event.edges.right) box.width else 0;
-        const border_y = toplevel.y + box.y + if (event.edges.bottom) box.height else 0;
-        server.grab_x = server.cursor.x - @as(f64, @floatFromInt(border_x));
-        server.grab_y = server.cursor.y - @as(f64, @floatFromInt(border_y));
-
-        server.grab_box = box;
-        server.grab_box.x += toplevel.x;
-        server.grab_box.y += toplevel.y;
+        toplevel.server.cursor.beginResize(toplevel, event.edges);
     }
 };

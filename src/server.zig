@@ -9,6 +9,7 @@ const gpa = std.heap.c_allocator;
 
 const Toplevel = @import("./scene/toplevel.zig").Toplevel;
 const Keyboard = @import("./input/keyboard.zig").Keyboard;
+const Cursor = @import("./input/cursor.zig").Cursor;
 const Popup = @import("./scene/popup.zig").Popup;
 const Output = @import("./scene/output.zig").Output;
 
@@ -26,28 +27,16 @@ pub const Server = struct {
     xdg_shell: *wlr.XdgShell,
     new_xdg_toplevel: wl.Listener(*wlr.XdgToplevel) = .init(newXdgToplevel),
     new_xdg_popup: wl.Listener(*wlr.XdgPopup) = .init(newXdgPopup),
+    xdg_decoration_manager: *wlr.XdgDecorationManagerV1,
+    new_xdg_toplevel_decoration: wl.Listener(*wlr.XdgToplevelDecorationV1) = .init(newXdgToplevelDecoration),
     toplevels: wl.list.Head(Toplevel, .link) = undefined,
 
     seat: *wlr.Seat,
     new_input: wl.Listener(*wlr.InputDevice) = .init(newInput),
-    request_set_cursor: wl.Listener(*wlr.Seat.event.RequestSetCursor) = .init(requestSetCursor),
     request_set_selection: wl.Listener(*wlr.Seat.event.RequestSetSelection) = .init(requestSetSelection),
     keyboards: wl.list.Head(Keyboard, .link) = undefined,
 
-    cursor: *wlr.Cursor,
-    cursor_mgr: *wlr.XcursorManager,
-    cursor_motion: wl.Listener(*wlr.Pointer.event.Motion) = .init(cursorMotion),
-    cursor_motion_absolute: wl.Listener(*wlr.Pointer.event.MotionAbsolute) = .init(cursorMotionAbsolute),
-    cursor_button: wl.Listener(*wlr.Pointer.event.Button) = .init(cursorButton),
-    cursor_axis: wl.Listener(*wlr.Pointer.event.Axis) = .init(cursorAxis),
-    cursor_frame: wl.Listener(*wlr.Cursor) = .init(cursorFrame),
-
-    cursor_mode: enum { passthrough, move, resize } = .passthrough,
-    grabbed_view: ?*Toplevel = null,
-    grab_x: f64 = 0,
-    grab_y: f64 = 0,
-    grab_box: wlr.Box = undefined,
-    resize_edges: wlr.Edges = .{},
+    cursor: Cursor,
 
     pub fn init(server: *Server) !void {
         const wl_server = try wl.Server.create();
@@ -65,9 +54,9 @@ pub const Server = struct {
             .output_layout = output_layout,
             .scene_output_layout = try scene.attachOutputLayout(output_layout),
             .xdg_shell = try wlr.XdgShell.create(wl_server, 2),
+            .xdg_decoration_manager = try wlr.XdgDecorationManagerV1.create(wl_server),
             .seat = try wlr.Seat.create(wl_server, "default"),
-            .cursor = try wlr.Cursor.create(),
-            .cursor_mgr = try wlr.XcursorManager.create(null, 24),
+            .cursor = try Cursor.init(server, output_layout),
         };
 
         try server.renderer.initServer(wl_server);
@@ -80,22 +69,16 @@ pub const Server = struct {
 
         server.xdg_shell.events.new_toplevel.add(&server.new_xdg_toplevel);
         server.xdg_shell.events.new_popup.add(&server.new_xdg_popup);
+        server.xdg_decoration_manager.events.new_toplevel_decoration.add(&server.new_xdg_toplevel_decoration);
         server.toplevels.init();
 
         server.backend.events.new_input.add(&server.new_input);
-        server.seat.events.request_set_cursor.add(&server.request_set_cursor);
         server.seat.events.request_set_selection.add(&server.request_set_selection);
         server.keyboards.init();
 
-        server.cursor.attachOutputLayout(server.output_layout);
-        try server.cursor_mgr.load(1);
-        server.cursor.events.motion.add(&server.cursor_motion);
-        server.cursor.events.motion_absolute.add(&server.cursor_motion_absolute);
-        server.cursor.events.button.add(&server.cursor_button);
-        server.cursor.events.axis.add(&server.cursor_axis);
-        server.cursor.events.frame.add(&server.cursor_frame);
+        server.cursor.attach();
 
-        // try server.initialComponent();
+        // try server.initBar();
     }
 
     pub fn deinit(server: *Server) void {
@@ -106,22 +89,12 @@ pub const Server = struct {
 
         server.new_xdg_toplevel.link.remove();
         server.new_xdg_popup.link.remove();
-        server.request_set_cursor.link.remove();
+        server.new_xdg_toplevel_decoration.link.remove();
         server.request_set_selection.link.remove();
-        server.cursor_motion.link.remove();
-        server.cursor_motion_absolute.link.remove();
-        server.cursor_button.link.remove();
-        server.cursor_axis.link.remove();
-        server.cursor_frame.link.remove();
+        server.cursor.deinit();
 
         server.backend.destroy();
         server.wl_server.destroy();
-    }
-
-    fn initialComponent(server: *Server) !void {
-        const red = [4]f32{ 1.0, 0.0, 0.0, 1.0 };
-        const rect = try server.scene.tree.createSceneRect(200, 200, &red);
-        rect.node.setPosition(100, 100);
     }
 
     fn newOutput(listener: *wl.Listener(*wlr.Output), wlr_output: *wlr.Output) void {
@@ -167,17 +140,7 @@ pub const Server = struct {
         toplevel.scene_tree.node.data = toplevel;
         xdg_surface.data = toplevel.scene_tree;
 
-        // Render title bar
-        const color = [4]f32{ 1.0, 0.0, 0.0, 1.0 };
-        const titleBar = toplevel.scene_tree.createSceneRect(10, 10, &color) catch |err| blk: {
-            std.debug.print("!!! Draw title bar error {}", .{err});
-            break :blk null;
-        };
-
-        if (titleBar) |tb| {
-            tb.setSize(0, 0);
-            toplevel.title_bar = titleBar;
-        }
+        toplevel.decoration.createTitleBar(toplevel.scene_tree);
 
         xdg_surface.surface.events.commit.add(&toplevel.commit);
         xdg_surface.surface.events.map.add(&toplevel.map);
@@ -185,6 +148,16 @@ pub const Server = struct {
         xdg_toplevel.events.destroy.add(&toplevel.destroy);
         xdg_toplevel.events.request_move.add(&toplevel.request_move);
         xdg_toplevel.events.request_resize.add(&toplevel.request_resize);
+    }
+
+    fn newXdgToplevelDecoration(
+        _: *wl.Listener(*wlr.XdgToplevelDecorationV1),
+        decoration: *wlr.XdgToplevelDecorationV1,
+    ) void {
+        const scene_tree = @as(?*wlr.SceneTree, @ptrCast(@alignCast(decoration.toplevel.base.data))) orelse return;
+        const toplevel = @as(?*Toplevel, @ptrCast(@alignCast(scene_tree.node.data))) orelse return;
+
+        toplevel.decoration.setXdgDecoration(decoration);
     }
 
     fn newXdgPopup(_: *wl.Listener(*wlr.XdgPopup), xdg_popup: *wlr.XdgPopup) void {
@@ -215,14 +188,14 @@ pub const Server = struct {
         xdg_popup.events.destroy.add(&popup.destroy);
     }
 
-    const ViewAtResult = struct {
+    pub const ViewAtResult = struct {
         toplevel: *Toplevel,
         surface: *wlr.Surface,
         sx: f64,
         sy: f64,
     };
 
-    fn viewAt(server: *Server, lx: f64, ly: f64) ?ViewAtResult {
+    pub fn viewAt(server: *Server, lx: f64, ly: f64) ?ViewAtResult {
         var sx: f64 = undefined;
         var sy: f64 = undefined;
         if (server.scene.tree.node.at(lx, ly, &sx, &sy)) |node| {
@@ -284,130 +257,11 @@ pub const Server = struct {
         });
     }
 
-    fn requestSetCursor(
-        listener: *wl.Listener(*wlr.Seat.event.RequestSetCursor),
-        event: *wlr.Seat.event.RequestSetCursor,
-    ) void {
-        const server: *Server = @fieldParentPtr("request_set_cursor", listener);
-        if (event.seat_client == server.seat.pointer_state.focused_client)
-            server.cursor.setSurface(event.surface, event.hotspot_x, event.hotspot_y);
-    }
-
     fn requestSetSelection(
         listener: *wl.Listener(*wlr.Seat.event.RequestSetSelection),
         event: *wlr.Seat.event.RequestSetSelection,
     ) void {
         const server: *Server = @fieldParentPtr("request_set_selection", listener);
         server.seat.setSelection(event.source, event.serial);
-    }
-
-    fn cursorMotion(
-        listener: *wl.Listener(*wlr.Pointer.event.Motion),
-        event: *wlr.Pointer.event.Motion,
-    ) void {
-        const server: *Server = @fieldParentPtr("cursor_motion", listener);
-        server.cursor.move(event.device, event.delta_x, event.delta_y);
-        server.processCursorMotion(event.time_msec);
-    }
-
-    fn cursorMotionAbsolute(
-        listener: *wl.Listener(*wlr.Pointer.event.MotionAbsolute),
-        event: *wlr.Pointer.event.MotionAbsolute,
-    ) void {
-        const server: *Server = @fieldParentPtr("cursor_motion_absolute", listener);
-        server.cursor.warpAbsolute(event.device, event.x, event.y);
-        server.processCursorMotion(event.time_msec);
-    }
-
-    fn processCursorMotion(server: *Server, time_msec: u32) void {
-        switch (server.cursor_mode) {
-            .passthrough => if (server.viewAt(server.cursor.x, server.cursor.y)) |res| {
-                server.seat.pointerNotifyEnter(res.surface, res.sx, res.sy);
-                server.seat.pointerNotifyMotion(time_msec, res.sx, res.sy);
-            } else {
-                server.cursor.setXcursor(server.cursor_mgr, "default");
-                server.seat.pointerClearFocus();
-            },
-            .move => {
-                const toplevel = server.grabbed_view.?;
-                toplevel.x = @as(i32, @intFromFloat(server.cursor.x - server.grab_x));
-                toplevel.y = @as(i32, @intFromFloat(server.cursor.y - server.grab_y));
-                toplevel.scene_tree.node.setPosition(toplevel.x, toplevel.y);
-            },
-            .resize => {
-                const toplevel = server.grabbed_view.?;
-                const border_x = @as(i32, @intFromFloat(server.cursor.x - server.grab_x));
-                const border_y = @as(i32, @intFromFloat(server.cursor.y - server.grab_y));
-
-                var new_left = server.grab_box.x;
-                var new_right = server.grab_box.x + server.grab_box.width;
-                var new_top = server.grab_box.y;
-                var new_bottom = server.grab_box.y + server.grab_box.height;
-
-                if (server.resize_edges.top) {
-                    new_top = border_y;
-                    if (new_top >= new_bottom)
-                        new_top = new_bottom - 1;
-                } else if (server.resize_edges.bottom) {
-                    new_bottom = border_y;
-                    if (new_bottom <= new_top)
-                        new_bottom = new_top + 1;
-                }
-
-                if (server.resize_edges.left) {
-                    new_left = border_x;
-                    if (new_left >= new_right)
-                        new_left = new_right - 1;
-                } else if (server.resize_edges.right) {
-                    new_right = border_x;
-                    if (new_right <= new_left)
-                        new_right = new_left + 1;
-                }
-
-                toplevel.x = new_left - toplevel.xdg_toplevel.base.geometry.x;
-                toplevel.y = new_top - toplevel.xdg_toplevel.base.geometry.y;
-                toplevel.scene_tree.node.setPosition(toplevel.x, toplevel.y);
-
-                const new_width = new_right - new_left;
-                const new_height = new_bottom - new_top;
-                _ = toplevel.xdg_toplevel.setSize(new_width, new_height);
-            },
-        }
-    }
-
-    fn cursorButton(
-        listener: *wl.Listener(*wlr.Pointer.event.Button),
-        event: *wlr.Pointer.event.Button,
-    ) void {
-        const server: *Server = @fieldParentPtr("cursor_button", listener);
-        _ = server.seat.pointerNotifyButton(event.time_msec, event.button, event.state);
-        if (event.state == .released) {
-            std.debug.print("Mouse event: Release\n", .{});
-            server.cursor_mode = .passthrough;
-        } else if (event.state == .pressed) {
-            std.debug.print("Mouse event: Pressed\n", .{});
-        } else if (server.viewAt(server.cursor.x, server.cursor.y)) |res| {
-            server.requestFocusView(res.toplevel, res.surface);
-        }
-    }
-
-    fn cursorAxis(
-        listener: *wl.Listener(*wlr.Pointer.event.Axis),
-        event: *wlr.Pointer.event.Axis,
-    ) void {
-        const server: *Server = @fieldParentPtr("cursor_axis", listener);
-        server.seat.pointerNotifyAxis(
-            event.time_msec,
-            event.orientation,
-            event.delta,
-            event.delta_discrete,
-            event.source,
-            event.relative_direction,
-        );
-    }
-
-    fn cursorFrame(listener: *wl.Listener(*wlr.Cursor), _: *wlr.Cursor) void {
-        const server: *Server = @fieldParentPtr("cursor_frame", listener);
-        server.seat.pointerNotifyFrame();
     }
 };
