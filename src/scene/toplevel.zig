@@ -7,6 +7,7 @@ const wl = @import("wayland").server.wl;
 const wlr = @import("wlroots");
 const xkb = @import("xkbcommon");
 const Decoration = @import("decoration.zig").Decoration;
+const focus = @import("../input/focus.zig");
 
 const gpa = std.heap.c_allocator;
 
@@ -29,23 +30,36 @@ pub const Toplevel = struct {
     request_move: wl.Listener(*wlr.XdgToplevel.event.Move) = .init(handleRequestMove),
     request_resize: wl.Listener(*wlr.XdgToplevel.event.Resize) = .init(handleRequestResize),
 
+    pub fn notifyFocus(toplevel: *Toplevel) void {
+        _ = toplevel.xdg_toplevel.setActivated(true);
+    }
+
+    pub fn notifyUnfocus(toplevel: *Toplevel) void {
+        _ = toplevel.xdg_toplevel.setActivated(false);
+        const title = toplevel.xdg_toplevel.title orelse "??";
+        dbgprint("Window {s} unfocused", .{title});
+    }
+
     fn handleCommit(listener: *wl.Listener(*wlr.Surface), _: *wlr.Surface) void {
         const toplevel: *Toplevel = @fieldParentPtr("commit", listener);
+
         if (toplevel.xdg_toplevel.base.initial_commit) {
+            dbgprint("<I> Window spawned\n", .{});
             _ = toplevel.xdg_toplevel.setSize(0, 0);
         }
-
         toplevel.decoration.handleCommit(toplevel.xdg_toplevel);
     }
 
     fn handleMap(listener: *wl.Listener(void)) void {
         const toplevel: *Toplevel = @fieldParentPtr("map", listener);
         toplevel.server.toplevels.prepend(toplevel);
-        toplevel.server.requestFocusView(toplevel, toplevel.xdg_toplevel.base.surface);
+        focus.activateToplevel(toplevel.server, toplevel, toplevel.xdg_toplevel.base.surface);
     }
 
     fn handleUnmap(listener: *wl.Listener(void)) void {
         const toplevel: *Toplevel = @fieldParentPtr("unmap", listener);
+        const title = toplevel.xdg_toplevel.title orelse "nothing";
+        dbgprint("<I> unmap! {s}\n", .{title});
         toplevel.link.remove();
     }
 

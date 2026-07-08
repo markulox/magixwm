@@ -47,15 +47,14 @@ pub const Decoration = struct {
     fn configureXdg(decoration: *Decoration, initialized: bool) void {
         if (!initialized) return;
         const xdg_decoration = decoration.xdg_decoration orelse return;
-
-        _ = xdg_decoration.setMode(preferred_mode);
+        _ = xdg_decoration.setMode(Decoration.preferred_mode);
     }
 
     fn layoutTitleBar(decoration: *Decoration, width: i32) void {
         const title_bar = decoration.title_bar orelse return;
 
         if (width > 0) {
-            title_bar.setSize(width, 10);
+            title_bar.setSize(width, 40);
         }
         title_bar.node.setPosition(0, -10);
     }

@@ -4,6 +4,7 @@ const wlr = @import("wlroots");
 
 const Server = @import("../server.zig").Server;
 const Toplevel = @import("../scene/toplevel.zig").Toplevel;
+const focus = @import("focus.zig");
 
 pub const Cursor = struct {
     server: *Server,
@@ -188,7 +189,7 @@ pub const Cursor = struct {
         } else if (event.state == .pressed) {
             std.debug.print("Mouse event: Pressed\n", .{});
             if (server.viewAt(cursor.wlr_cursor.x, cursor.wlr_cursor.y)) |res| {
-                server.requestFocusView(res.toplevel, res.surface);
+                focus.activateToplevel(server, res.toplevel, res.surface);
             }
         }
     }

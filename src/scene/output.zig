@@ -40,7 +40,10 @@ pub const Output = struct {
         const output: *Output = @fieldParentPtr("frame", listener);
 
         const scene_output = output.server.scene.getSceneOutput(output.wlr_output).?;
-        _ = scene_output.commit(null);
+        if (!scene_output.commit(null)) {
+            std.log.err("failed to commit scene output {s}", .{output.wlr_output.name});
+            return;
+        }
 
         var now = timestamp();
         scene_output.sendFrameDone(&now);

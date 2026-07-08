@@ -6,10 +6,9 @@ const magixwm = @import("magixwm");
 
 const gpa = std.heap.c_allocator;
 pub fn main(init: std.process.Init) anyerror!void {
-    wlr.log.init(.debug, null);
+    wlr.log.init(.info, null);
 
     var server: magixwm.Server = undefined;
-
     try server.init();
     defer server.deinit();
 

@@ -77,8 +77,6 @@ pub const Server = struct {
         server.keyboards.init();
 
         server.cursor.attach();
-
-        // try server.initBar();
     }
 
     pub fn deinit(server: *Server) void {
@@ -216,28 +214,6 @@ pub const Server = struct {
             }
         }
         return null;
-    }
-
-    pub fn requestFocusView(server: *Server, toplevel: *Toplevel, surface: *wlr.Surface) void {
-        if (server.seat.keyboard_state.focused_surface) |previous_surface| {
-            if (previous_surface == surface) return;
-            if (wlr.XdgSurface.tryFromWlrSurface(previous_surface)) |xdg_surface| {
-                _ = xdg_surface.role_data.toplevel.?.setActivated(false);
-            }
-        }
-
-        toplevel.scene_tree.node.raiseToTop();
-        toplevel.link.remove();
-        server.toplevels.prepend(toplevel);
-
-        _ = toplevel.xdg_toplevel.setActivated(true);
-
-        const wlr_keyboard = server.seat.getKeyboard() orelse return;
-        server.seat.keyboardNotifyEnter(
-            surface,
-            wlr_keyboard.keycodes[0..wlr_keyboard.num_keycodes],
-            &wlr_keyboard.modifiers,
-        );
     }
 
     fn newInput(listener: *wl.Listener(*wlr.InputDevice), device: *wlr.InputDevice) void {
