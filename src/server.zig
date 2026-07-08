@@ -128,17 +128,28 @@ pub const Server = struct {
             return;
         };
 
+        const scene_tree = server.scene.tree.createSceneTree() catch {
+            gpa.destroy(toplevel);
+            std.log.err("failed to allocate new toplevel", .{});
+            return;
+        };
+
+        const client_tree = scene_tree.createSceneXdgSurface(xdg_surface) catch {
+            scene_tree.node.destroy();
+            gpa.destroy(toplevel);
+            std.log.err("failed to allocate new toplevel client", .{});
+            return;
+        };
+
         toplevel.* = .{
             .server = server,
             .xdg_toplevel = xdg_toplevel,
-            .scene_tree = server.scene.tree.createSceneXdgSurface(xdg_surface) catch {
-                gpa.destroy(toplevel);
-                std.log.err("failed to allocate new toplevel", .{});
-                return;
-            },
+            .scene_tree = scene_tree,
+            .client_tree = client_tree,
         };
         toplevel.scene_tree.node.data = toplevel;
-        xdg_surface.data = toplevel.scene_tree;
+        toplevel.client_tree.node.data = toplevel;
+        xdg_surface.data = toplevel.client_tree;
 
         toplevel.decoration.createTitleBar(toplevel.scene_tree);
 

@@ -19,6 +19,7 @@ pub const Toplevel = struct {
     link: wl.list.Link = undefined,
     xdg_toplevel: *wlr.XdgToplevel,
     scene_tree: *wlr.SceneTree,
+    client_tree: *wlr.SceneTree,
     decoration: Decoration = .{},
 
     x: i32 = 2,
@@ -41,7 +42,10 @@ pub const Toplevel = struct {
     pub fn notifyFocus(self: *Toplevel) void {
         const was_animating = self.decoration.isAnimating();
         const was_hidden = !self.decoration.isShown;
+        var configure_now = true;
         self.pending_hide_animation = false;
+        self.setClientOffset(0);
+        self.clearClientClip();
 
         _ = self.xdg_toplevel.setActivated(true);
         self.decoration.show();
@@ -51,12 +55,16 @@ pub const Toplevel = struct {
             self.show_animation_start_y = self.y;
             self.decoration.startShowAnimation(nowMsec());
             self.setPosition(self.x, self.y + Decoration.title_bar_height);
+            self.server.scheduleFrame();
+            configure_now = false;
         } else {
             self.setScenePosition(self.x, self.y);
         }
 
         const title = self.xdg_toplevel.title orelse "??";
-        self.configureSize(self.size_width, self.size_height);
+        if (configure_now) {
+            self.configureSize(self.size_width, self.size_height);
+        }
         dbgprint("Window {s} focused\n", .{title});
     }
 
@@ -81,17 +89,20 @@ pub const Toplevel = struct {
         const height = self.decoration.currentTitleBarHeight();
         if (self.decoration.isShown) {
             self.setScenePosition(self.x, self.show_animation_start_y + height);
+            self.setClientClip((self.size_height + Decoration.title_bar_height) - height);
         } else {
-            const hidden_height = Decoration.title_bar_height - self.decoration.currentTitleBarHeight();
-            self.setScenePosition(self.x, self.hide_animation_start_y - hidden_height);
+            self.setClientOffset(height);
+            self.setClientClip(self.pending_hide_height - height);
         }
 
         if (!self.decoration.isAnimating()) {
             if (self.decoration.isShown) {
                 self.setPosition(self.x, self.show_animation_start_y + Decoration.title_bar_height);
+                self.clearClientClip();
                 self.configureSize(self.size_width, self.size_height);
             } else {
-                self.setPosition(self.x, self.hide_animation_start_y - Decoration.title_bar_height);
+                self.setClientOffset(0);
+                self.clearClientClip();
             }
         }
 
@@ -142,6 +153,30 @@ pub const Toplevel = struct {
         _ = self.scene_tree.node.setPosition(x_c_int, y_c_int);
     }
 
+    fn setClientOffset(self: *Toplevel, y: c_int) void {
+        self.client_tree.node.setPosition(0, y);
+    }
+
+    fn setClientClip(self: *Toplevel, height: c_int) void {
+        if (height <= 0) {
+            self.clearClientClip();
+            return;
+        }
+
+        const geometry = self.xdg_toplevel.base.geometry;
+        var clip = wlr.Box{
+            .x = 0,
+            .y = 0,
+            .width = if (self.size_width > 0) self.size_width else geometry.width,
+            .height = height,
+        };
+        self.client_tree.node.subsurfaceTreeSetClip(&clip);
+    }
+
+    fn clearClientClip(self: *Toplevel) void {
+        self.client_tree.node.subsurfaceTreeSetClip(null);
+    }
+
     fn nowMsec() u64 {
         const now = timestamp();
         return (@as(u64, @intCast(now.sec)) * std.time.ms_per_s) +
@@ -164,7 +199,10 @@ pub const Toplevel = struct {
             toplevel.xdg_toplevel.base.geometry.height >= toplevel.pending_hide_height)
         {
             toplevel.pending_hide_animation = false;
-            toplevel.decoration.startHideAnimation(nowMsec());
+            toplevel.setPosition(toplevel.x, toplevel.hide_animation_start_y - Decoration.title_bar_height);
+            toplevel.setClientOffset(Decoration.title_bar_height);
+            toplevel.setClientClip(toplevel.pending_hide_height - Decoration.title_bar_height);
+            toplevel.decoration.startHideAnimation(nowMsec(), 0);
             toplevel.server.scheduleFrame();
         }
     }
@@ -192,6 +230,7 @@ pub const Toplevel = struct {
         toplevel.request_move.link.remove();
         toplevel.request_resize.link.remove();
         toplevel.decoration.deinit();
+        toplevel.scene_tree.node.destroy();
 
         gpa.destroy(toplevel);
     }

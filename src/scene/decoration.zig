@@ -6,7 +6,7 @@ pub const Decoration = struct {
     const preferred_mode: wlr.XdgToplevelDecorationV1.Mode = .server_side;
     pub const title_bar_height = 30;
     pub const title_bar_y = -title_bar_height;
-    pub const title_bar_animation_duration_ms = 90;
+    pub const title_bar_animation_duration_ms = 75;
 
     pub const TitleBarAnimation = struct {
         active: bool = false,
@@ -16,11 +16,18 @@ pub const Decoration = struct {
         to_height: c_int = 0,
     };
 
+    const TitleBarPosition = enum {
+        above_client,
+        fixed_top,
+    };
+
     xdg_decoration: ?*wlr.XdgToplevelDecorationV1 = null,
     title_bar: ?*wlr.SceneRect = null,
     destroy: wl.Listener(*wlr.XdgToplevelDecorationV1) = .init(handleDestroy),
     isShown: bool = true,
     title_bar_animation: TitleBarAnimation = .{},
+    title_bar_y_offset: c_int = 0,
+    title_bar_position: TitleBarPosition = .above_client,
 
     pub fn titleBarHeight(is_shown: bool) c_int {
         return if (is_shown) title_bar_height else 0;
@@ -89,7 +96,7 @@ pub const Decoration = struct {
         if (width > 0) {
             title_bar.setSize(width, height);
         }
-        positionTitleBar(title_bar, height);
+        decoration.positionTitleBar(title_bar, height);
     }
 
     pub fn isAnimating(decoration: *const Decoration) bool {
@@ -102,21 +109,25 @@ pub const Decoration = struct {
     }
 
     pub fn startShowAnimation(decoration: *Decoration, now_msec: u64) void {
-        const title_bar = decoration.title_bar orelse return;
+        if (decoration.title_bar == null) return;
 
         decoration.isShown = true;
+        decoration.title_bar_y_offset = 0;
+        decoration.title_bar_position = .above_client;
         decoration.title_bar_animation = .{
             .active = true,
             .started_msec = now_msec,
             .from_height = 0,
-            .to_height = title_bar.height,
+            .to_height = title_bar_height,
         };
     }
 
-    pub fn startHideAnimation(decoration: *Decoration, now_msec: u64) void {
+    pub fn startHideAnimation(decoration: *Decoration, now_msec: u64, y_offset: c_int) void {
         const title_bar = decoration.title_bar orelse return;
 
         decoration.isShown = false;
+        decoration.title_bar_y_offset = y_offset;
+        decoration.title_bar_position = .fixed_top;
         decoration.title_bar_animation = .{
             .active = true,
             .started_msec = now_msec,
@@ -142,12 +153,12 @@ pub const Decoration = struct {
             animation.duration_msec,
         );
         title_bar.setSize(title_bar.width, height);
-        positionTitleBar(title_bar, height);
+        decoration.positionTitleBar(title_bar, height);
 
         if (elapsed >= animation.duration_msec) {
             animation.active = false;
             title_bar.setSize(title_bar.width, animation.to_height);
-            positionTitleBar(title_bar, animation.to_height);
+            decoration.positionTitleBar(title_bar, animation.to_height);
         }
 
         return true;
@@ -158,8 +169,10 @@ pub const Decoration = struct {
 
         self.isShown = false;
         self.title_bar_animation.active = false;
+        self.title_bar_y_offset = 0;
+        self.title_bar_position = .above_client;
         title_bar.setSize(title_bar.width, 0);
-        positionTitleBar(title_bar, 0);
+        self.positionTitleBar(title_bar, 0);
     }
 
     pub fn show(self: *Decoration) void {
@@ -167,12 +180,18 @@ pub const Decoration = struct {
 
         self.isShown = true;
         self.title_bar_animation.active = false;
+        self.title_bar_y_offset = 0;
+        self.title_bar_position = .above_client;
         title_bar.setSize(title_bar.width, title_bar_height);
-        positionTitleBar(title_bar, title_bar_height);
+        self.positionTitleBar(title_bar, title_bar_height);
     }
 
-    fn positionTitleBar(title_bar: *wlr.SceneRect, height: c_int) void {
-        title_bar.node.setPosition(0, -height);
+    fn positionTitleBar(decoration: *const Decoration, title_bar: *wlr.SceneRect, height: c_int) void {
+        const y = switch (decoration.title_bar_position) {
+            .above_client => decoration.title_bar_y_offset - height,
+            .fixed_top => decoration.title_bar_y_offset,
+        };
+        title_bar.node.setPosition(0, y);
     }
 
     fn handleDestroy(
