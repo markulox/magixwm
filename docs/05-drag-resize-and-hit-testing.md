@@ -1,4 +1,4 @@
-# Drag, Resize And Hit Testing
+# การ Drag, Resize และ Hit Test
 
 ไฟล์หลัก:
 
@@ -41,7 +41,9 @@ while (it) |n| : (it = n.node.parent) {
 
 ## Hit Test Title Bar
 
-title bar ไม่ใช่ client buffer แต่เป็น compositor-owned `SceneRect` ดังนั้นใช้ function แยก:
+title bar ไม่ใช่ client surface แต่เป็น compositor-owned `SceneRect`
+
+ดังนั้นใช้ function แยกแทนการพึ่ง `viewAt()`:
 
 ```zig
 Server.titleBarAt(lx, ly)
@@ -76,11 +78,11 @@ ly < bottom
 
 ถ้า title bar hidden หรือ width <= 0 จะ return false
 
-## Pointer Button Flow
+## Flow ของ Pointer Button
 
 `Cursor.handleButton()`:
 
-### Pressed
+### ตอน Pressed
 
 ก่อนส่ง event ให้ client จะเช็ค title bar:
 
@@ -105,7 +107,7 @@ if (event.state == .pressed) {
 1. forward button press ให้ client
 2. ถ้า pointer อยู่บน client surface จะ focus window นั้น
 
-### Released
+### ตอน Released
 
 ถ้า release:
 
@@ -142,7 +144,7 @@ toplevel.scene_tree.node.setPosition(toplevel.x, toplevel.y);
 
 หลักคือรักษาระยะระหว่าง cursor กับมุมซ้ายบนของ window เอาไว้ ทำให้ลากแล้ว window ไม่กระโดด
 
-## Title Bar Move
+## การลาก Title Bar
 
 `beginTitleBarMove()` เรียก `beginMove()` แล้ว set:
 
@@ -210,4 +212,3 @@ toplevel.server.cursor.beginMove(toplevel);
 ```
 
 ยังไม่ได้ validate serial/request origin แบบ compositor ที่ production-ready ควรทำ
-

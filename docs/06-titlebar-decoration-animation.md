@@ -1,4 +1,4 @@
-# Title Bar, Decoration And Animation
+# Title Bar, Decoration และ Animation
 
 ไฟล์หลัก:
 
@@ -15,7 +15,7 @@
 title_bar: ?*wlr.SceneRect
 ```
 
-title bar เป็น `SceneRect` สีเทา ไม่ใช่ surface ของ client
+title bar เป็น node ฝั่ง compositor ไม่ใช่ surface ของ client และวาดเป็น `SceneRect` สีเทา
 
 ค่าคงที่:
 
@@ -25,7 +25,7 @@ title_bar_y = -title_bar_height
 title_bar_animation_duration_ms = 75
 ```
 
-## Server-side Decoration Protocol
+## Protocol สำหรับ Server-side Decoration
 
 ถ้า client ใช้ xdg-decoration protocol, `Server.newXdgToplevelDecoration()` จะเรียก:
 
@@ -41,7 +41,7 @@ server_side
 
 แปลว่า compositor เป็นคนวาด decoration
 
-## Title Bar Layout
+## Layout ของ Title Bar
 
 ทุก commit:
 
@@ -58,7 +58,7 @@ height ที่ใช้:
 
 position ใช้ `positionTitleBar()`
 
-## Positioning Modes
+## Mode การจัดตำแหน่ง
 
 `Decoration` มี enum:
 
@@ -69,7 +69,7 @@ const TitleBarPosition = enum {
 };
 ```
 
-### above_client
+### `above_client`
 
 ใช้ตอน normal/show:
 
@@ -85,7 +85,7 @@ y = -30
 
 title bar อยู่เหนือ client
 
-### fixed_top
+### `fixed_top`
 
 ใช้ตอน hide animation ปัจจุบัน:
 
@@ -95,7 +95,7 @@ y = offset
 
 ตอน hide เรียกด้วย offset = 0 ดังนั้น title bar อยู่ local y = 0 และลด height จาก 30 -> 0 ทำให้หดจากล่างขึ้นบน
 
-## Animation State
+## State ของ Animation
 
 `TitleBarAnimation`:
 
@@ -115,7 +115,7 @@ from + (to - from) * elapsed / duration
 
 ถ้า elapsed >= duration จะ clamp เป็น `to_height`
 
-## Hide Flow
+## Flow ตอน Hide
 
 เมื่อ window ถูก unfocus:
 
@@ -206,7 +206,7 @@ clearClientClip()
 
 ไม่ต้อง configure size อีก เพราะ configure expanded size ถูกส่งก่อน animation แล้ว
 
-## Show Flow
+## Flow ตอน Show
 
 เมื่อ window ถูก focus และ title bar hidden:
 
@@ -264,7 +264,7 @@ configureSize(size_width, size_height)
 
 หลัง animation จบแล้วค่อยบอก client ให้กลับไป normal focused size
 
-## Frame Scheduling
+## การ Schedule Frame
 
 animation ไม่เดินเอง ต้องมี output frame events
 
@@ -284,7 +284,7 @@ server.scheduleFrame()
 4. send frame done
 5. ถ้ายังมี animation active ให้ schedule frame ต่อ
 
-## Why Not Use setSize Every Frame
+## ทำไมไม่ใช้ setSize ทุก Frame
 
 `xdg_toplevel.setSize()` เป็น Wayland configure negotiation ไม่ใช่ immediate command
 
@@ -301,4 +301,3 @@ server.scheduleFrame()
 - client_tree local position
 - client_tree clip
 - outer scene tree position เฉพาะ transition boundary
-

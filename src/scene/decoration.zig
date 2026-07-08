@@ -109,7 +109,7 @@ pub const Decoration = struct {
     }
 
     pub fn startShowAnimation(decoration: *Decoration, now_msec: u64) void {
-        if (decoration.title_bar == null) return;
+        const title_bar = decoration.title_bar orelse return;
 
         decoration.isShown = true;
         decoration.title_bar_y_offset = 0;
@@ -120,6 +120,8 @@ pub const Decoration = struct {
             .from_height = 0,
             .to_height = title_bar_height,
         };
+        title_bar.setSize(title_bar.width, 0);
+        decoration.positionTitleBar(title_bar, 0);
     }
 
     pub fn startHideAnimation(decoration: *Decoration, now_msec: u64, y_offset: c_int) void {

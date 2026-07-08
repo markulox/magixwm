@@ -1,4 +1,4 @@
-# Scene And Toplevel Lifecycle
+# Scene และ Lifecycle ของ Toplevel
 
 ไฟล์หลัก:
 
@@ -7,7 +7,7 @@
 - `src/scene/decoration.zig`
 - `src/scene/popup.zig`
 
-## new xdg_toplevel
+## เมื่อมี xdg_toplevel ใหม่
 
 เมื่อ client สร้าง window ใหม่ wlroots emit:
 
@@ -63,6 +63,8 @@ xdg_surface.data = toplevel.client_tree;
 toplevel.decoration.createTitleBar(toplevel.scene_tree);
 ```
 
+ขั้นตอนนี้สร้าง `decoration.title_bar` แบบ `SceneRect`
+
 7. register listeners:
 
 ```text
@@ -74,14 +76,14 @@ xdg_toplevel.request_move -> Toplevel.handleRequestMove
 xdg_toplevel.request_resize -> Toplevel.handleRequestResize
 ```
 
-## Scene Layout
+## Layout ของ Scene
 
 หลังสร้าง window:
 
 ```text
 server.scene.tree
   toplevel.scene_tree
-    decoration.title_bar
+    decoration.title_bar       // SceneRect พื้นหลัง title bar
     toplevel.client_tree
       xdg surface buffers
 ```
@@ -90,7 +92,7 @@ server.scene.tree
 
 `toplevel.client_tree` คือ client content ที่สามารถถูก offset/clip ระหว่าง animation
 
-## Initial Commit
+## Commit แรก
 
 เมื่อ surface commit ครั้งแรก:
 
@@ -129,7 +131,7 @@ xdg_toplevel.setSize(width, height)
 
 นี่เป็น Wayland configure request ไม่ใช่ resize ทันที
 
-## Decoration Commit Handling
+## การจัดการ Decoration ตอน Commit
 
 ทุก commit เรียก:
 
@@ -146,7 +148,7 @@ Decoration จะ:
 decoration.layoutTitleBar(xdg_toplevel.base.geometry.width);
 ```
 
-## Map
+## ตอน Map
 
 เมื่อ client map surface:
 
@@ -163,7 +165,7 @@ focus.activateToplevel(server, toplevel, toplevel.xdg_toplevel.base.surface);
 
 แปลว่า window ใหม่จะถูกใส่ไว้บนสุดของ focus/stack list แล้ว focus ทันที
 
-## Unmap
+## ตอน Unmap
 
 เมื่อ surface unmap:
 
@@ -179,7 +181,7 @@ toplevel.link.remove();
 
 เอา window ออกจาก mapped toplevel list
 
-## Destroy
+## ตอน Destroy
 
 เมื่อ xdg_toplevel ถูก destroy:
 
@@ -205,7 +207,7 @@ toplevel.scene_tree.node.destroy();
 gpa.destroy(toplevel);
 ```
 
-## Popup Lifecycle
+## Lifecycle ของ Popup
 
 เมื่อ client สร้าง `xdg_popup`:
 
@@ -233,4 +235,3 @@ _ = popup.xdg_popup.base.scheduleConfigure();
 - free `Popup`
 
 ข้อจำกัด: popup code ตอนนี้รองรับ parent ที่เป็น XDG surface เท่านั้น ยังไม่ได้รองรับ layer-shell หรือ parent ชนิดอื่น
-

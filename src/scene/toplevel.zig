@@ -28,6 +28,7 @@ pub const Toplevel = struct {
     size_width: i32 = 0,
     size_height: i32 = 0,
     pending_hide_animation: bool = false,
+    pending_show_clip: bool = false,
     pending_hide_height: i32 = 0,
     show_animation_start_y: i32 = 0,
     hide_animation_start_y: i32 = 0,
@@ -44,6 +45,7 @@ pub const Toplevel = struct {
         const was_hidden = !self.decoration.isShown;
         var configure_now = true;
         self.pending_hide_animation = false;
+        self.pending_show_clip = false;
         self.setClientOffset(0);
         self.clearClientClip();
 
@@ -98,7 +100,8 @@ pub const Toplevel = struct {
         if (!self.decoration.isAnimating()) {
             if (self.decoration.isShown) {
                 self.setPosition(self.x, self.show_animation_start_y + Decoration.title_bar_height);
-                self.clearClientClip();
+                self.setClientClip(self.size_height);
+                self.pending_show_clip = true;
                 self.configureSize(self.size_width, self.size_height);
             } else {
                 self.setClientOffset(0);
@@ -194,6 +197,13 @@ pub const Toplevel = struct {
             toplevel.scene_tree.node.setPosition(toplevel.x, toplevel.y);
         }
         toplevel.decoration.handleCommit(toplevel.xdg_toplevel);
+
+        if (toplevel.pending_show_clip and
+            toplevel.xdg_toplevel.base.geometry.height <= toplevel.size_height)
+        {
+            toplevel.pending_show_clip = false;
+            toplevel.clearClientClip();
+        }
 
         if (toplevel.pending_hide_animation and
             toplevel.xdg_toplevel.base.geometry.height >= toplevel.pending_hide_height)

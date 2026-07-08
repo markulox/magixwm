@@ -1,8 +1,8 @@
-# Overview
+# ภาพรวม
 
 โปรเจกต์นี้เป็น Wayland compositor ขนาดเล็กที่ใช้ `wlroots` ผ่าน Zig bindings โครงสร้างคล้าย tinywl แต่มี logic เพิ่มสำหรับ focus, title bar decoration, drag-to-move, resize และ animation ของ title bar
 
-## Entry Points
+## จุดเริ่มต้น
 
 จุดเริ่มต้นอยู่ที่ `src/main.zig`
 
@@ -54,7 +54,7 @@ main.zig
 ```text
 server.scene.tree
   toplevel.scene_tree          // outer window tree, ใช้เป็น position/stacking ของ window
-    decoration.title_bar       // compositor-owned SceneRect
+    decoration.title_bar       // compositor-owned SceneRect สำหรับพื้นหลัง title bar
     toplevel.client_tree       // XDG surface tree ของ client
       client buffers/subsurfaces
 ```
@@ -63,10 +63,10 @@ server.scene.tree
 
 - outer `scene_tree` ขยับ window ทั้งก้อน
 - `client_tree` ขยับเฉพาะ client content ได้
-- title bar เป็น compositor-owned rect และ animate ได้โดยไม่ต้องให้ client วาด
+- title bar เป็น compositor-owned node และ animate ได้โดยไม่ต้องให้ client วาด
 - ระหว่าง animation สามารถ clip `client_tree` เพื่อให้ bottom edge ไม่ขยับ
 
-## Event Model
+## รูปแบบ Event
 
 โปรเจกต์ใช้ `wl.Listener` ตาม pattern ของ wlroots
 
@@ -97,7 +97,7 @@ pattern นี้ใช้ทั่ว project:
 - keyboard key/modifiers/destroy -> `Keyboard.handleKey` ฯลฯ
 - cursor motion/button/axis/frame -> `Cursor.handleMotion` ฯลฯ
 
-## Memory/Lifetime Style
+## รูปแบบ Memory และ Lifetime
 
 หลาย object allocate ด้วย `std.heap.c_allocator`:
 
@@ -120,7 +120,7 @@ destroy path ต้อง:
 - destroy outer scene node
 - free `Toplevel`
 
-## Important Design Rule
+## กฎสำคัญของ Design
 
 Wayland `xdg_toplevel.setSize()` ไม่ใช่ immediate resize แต่เป็น protocol configure ที่ client จะตอบกลับภายหลังผ่าน commit
 
@@ -131,4 +131,3 @@ project นี้จึงทำ:
 - resize client size เฉพาะจุด stable state
 - animate title bar และ `client_tree` ใน compositor scene graph
 - ใช้ output frame callback เป็น clock สำหรับ animation
-

@@ -1,4 +1,4 @@
-# Input, Focus, Keyboard And Pointer
+# Input, Focus, Keyboard และ Pointer
 
 ไฟล์หลัก:
 
@@ -8,7 +8,7 @@
 - `src/input/keybind.zig`
 - `src/input/focus.zig`
 
-## Input Device Lifecycle
+## Lifecycle ของ Input Device
 
 เมื่อ backend เจอ input device ใหม่:
 
@@ -109,7 +109,7 @@ seat.setKeyboard(wlr_keyboard);
 seat.keyboardNotifyKey(event.time_msec, event.keycode, event.state);
 ```
 
-## Keybinds
+## Keybind
 
 `src/input/keybind.zig`
 
@@ -127,7 +127,7 @@ Alt+s -> focus_next
 - `quit`: `server.wl_server.terminate()`
 - `focus_next`: เอา toplevel ตัวถัดไปใน stack แล้ว `focus.activateToplevel(...)`
 
-## Pointer/Cursor
+## Pointer และ Cursor
 
 `Cursor.init()` สร้าง:
 
@@ -167,7 +167,7 @@ wlr_cursor.warpAbsolute(event.device, event.x, event.y);
 processMotion(event.time_msec);
 ```
 
-## Passthrough Pointer Mode
+## Pointer Mode แบบ Passthrough
 
 ใน mode `.passthrough`:
 
@@ -208,7 +208,7 @@ if (event.seat_client == seat.pointer_state.focused_client)
     cursor.setSurface(...)
 ```
 
-## Focus Logic
+## Logic ของ Focus
 
 `focus.activateToplevel(server, toplevel, surface)` ทำ:
 
@@ -234,6 +234,8 @@ server.toplevels.prepend(toplevel);
 toplevel.notifyFocus();
 ```
 
+`notifyFocus()` และ `notifyUnfocus()` เป็นจุดที่เริ่ม show/hide animation ของ title bar และ client clipping
+
 7. ส่ง keyboard enter ให้ client:
 
 ```zig
@@ -249,4 +251,3 @@ server.seat.setSelection(event.source, event.serial);
 ```
 
 นี่คือ path พื้นฐานของ copy/paste ผ่าน Wayland data device
-

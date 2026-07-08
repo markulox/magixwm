@@ -1,4 +1,4 @@
-# Output And Render Loop
+# Output และ Render Loop
 
 ไฟล์หลัก:
 
@@ -6,7 +6,7 @@
 - `src/scene/output.zig`
 - `src/utils/time.zig`
 
-## New Output
+## Output ใหม่
 
 เมื่อ backend เจอ output:
 
@@ -32,7 +32,7 @@ wlr_output.initRender(server.allocator, server.renderer)
 Output.create(server, wlr_output)
 ```
 
-## Output.create
+## `Output.create`
 
 `Output.create()`:
 
@@ -127,6 +127,8 @@ while (it.next()) |toplevel| {
 
 ถ้า toplevel ใด update animation แล้ว return true, output frame จะถูก schedule ต่อ
 
+ใน animation tick เดียวกัน `Decoration.updateTitleBarAnimation()` จะ update ขนาดและตำแหน่งของ title bar rect ตาม frame clock ของ output
+
 ## Request State
 
 ถ้า output request state:
@@ -141,7 +143,7 @@ Output.handleRequestState
 wlr_output.commitState(event.state)
 ```
 
-## Output Destroy
+## ตอน Output Destroy
 
 เมื่อ output destroy:
 
@@ -158,4 +160,3 @@ clock_gettime(CLOCK_MONOTONIC)
 ```
 
 เพราะ animation ควรใช้ monotonic clock ไม่ใช่ wall-clock time
-

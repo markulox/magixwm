@@ -1,4 +1,4 @@
-# Startup And Server Lifecycle
+# การเริ่มต้นระบบและ Lifecycle ของ Server
 
 ไฟล์หลัก:
 
@@ -47,7 +47,7 @@ _ = try wlr.DataDeviceManager.create(server.wl_server);
 
 protocol globals คือสิ่งที่ client เห็นผ่าน Wayland registry เช่น `wl_compositor`, `wl_subcompositor`, data device
 
-## Register Events
+## การ Register Event
 
 หลัง resource พร้อมแล้ว `Server.init()` register listener:
 
@@ -93,7 +93,7 @@ WAYLAND_DISPLAY=<socket>
 
 ทำให้ client ที่ spawn มา connect เข้า compositor นี้
 
-## Start Backend
+## เริ่ม Backend
 
 ```zig
 try server.backend.start();
@@ -133,4 +133,3 @@ server.wl_server.terminate();
 5. `wl_server.destroy()`
 
 ข้อควรระวัง: object หลายตัวผูก lifetime กับ wlroots event destroy ของ resource นั้น ๆ เช่น `Output`, `Keyboard`, `Toplevel`, `Popup`
-

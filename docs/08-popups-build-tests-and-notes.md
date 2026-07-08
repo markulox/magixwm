@@ -1,4 +1,4 @@
-# Popups, Build, Tests And Notes
+# Popup, Build, Test และ Notes
 
 ## Popup
 
@@ -48,7 +48,7 @@ libraries ที่ link:
 - `pixman-1`
 - `wlroots-0.20`
 
-## Run
+## การ Run
 
 ทั่วไป:
 
@@ -79,7 +79,7 @@ test ที่มีตอนนี้ครอบคลุม:
 - title bar height visibility
 - title bar animation interpolation
 
-## Linked List Ordering
+## ลำดับของ Linked List
 
 `server.toplevels` ใช้เป็นทั้ง mapped windows list และ stacking/focus order
 
@@ -118,9 +118,9 @@ xdg_surface.data = toplevel.client_tree;
 
 ถ้าเปลี่ยน scene graph ต้องระวัง pointer เหล่านี้เสมอ
 
-## Known Design Tradeoffs
+## Tradeoff ของ Design ที่ควรรู้
 
-### Focus animation depends on `isShown`
+### Focus animation พึ่ง `isShown`
 
 `Decoration.isShown` ถูกใช้ทั้งเป็น logical state และใช้แยก show/hide animation ใน `Toplevel.updateAnimations()`
 
@@ -154,7 +154,7 @@ geometry.height >= pending_hide_height
 
 ถ้ารัน compositor nested ใน KWin บาง output mode/custom mode อาจทำให้ nested window หายหรือ commit fail ได้ ขึ้นกับ backend และ host compositor
 
-## Debugging Tips
+## Tips สำหรับ Debug
 
 - ถ้า window ไม่ขยับ: เช็คว่าแก้ outer `scene_tree` หรือ `client_tree`
 - ถ้า content โผล่เกิน bottom edge: เช็ค `setClientClip`
@@ -162,4 +162,3 @@ geometry.height >= pending_hide_height
 - ถ้า focus animation ไม่เล่น: เช็ค `server.scheduleFrame()` และ `Output.handleFrame`
 - ถ้า keyboard ไม่เข้า client: เช็ค `seat.keyboardNotifyEnter`
 - ถ้า pointer event ไม่เข้า client: เช็ค `viewAt` และ `pointerNotifyEnter`
-

@@ -1,10 +1,10 @@
-# MagixWM Internals
+# เอกสารภายในของ MagixWM
 
-เอกสารชุดนี้อธิบายการทำงานของ compositor ตัวนี้จาก code ปัจจุบันใน `src/` โดยเน้น lifecycle, event flow, input handling, focus, drag/resize, scene graph, output render loop และ animation ของ title bar
+เอกสารชุดนี้อธิบายการทำงานของ compositor ตัวนี้จาก code ปัจจุบันใน `src/` โดยเน้น lifecycle, event flow, input handling, focus, drag/resize, scene graph, output render loop, title bar decoration และ animation ของ title bar
 
 ไฟล์เอกสาร:
 
-- [01-overview.md](01-overview.md): ภาพรวม architecture และ object สำคัญ
+- [01-overview.md](01-overview.md): ภาพรวมสถาปัตยกรรมและ object สำคัญ
 - [02-startup-and-server-lifecycle.md](02-startup-and-server-lifecycle.md): startup, server init/deinit และ Wayland socket
 - [03-scene-and-toplevel-lifecycle.md](03-scene-and-toplevel-lifecycle.md): lifecycle ของ xdg_toplevel, scene tree, map/unmap/destroy
 - [04-input-focus-keyboard-pointer.md](04-input-focus-keyboard-pointer.md): keyboard, pointer, focus, keybind และ clipboard selection
@@ -20,5 +20,5 @@
 - `toplevel`: window หลักแบบ `xdg_toplevel`
 - `scene_tree`: outer tree ของ window ทั้งก้อน
 - `client_tree`: scene tree ของ XDG surface/client ภายใน window
-- `Decoration`: compositor-owned title bar
+- `Decoration`: compositor-owned title bar แบบ `SceneRect`
 - `seat`: wlroots seat ที่ถือ keyboard/pointer focus และส่ง event ให้ client
