@@ -24,6 +24,7 @@ pub const Cursor = struct {
     grab_y: f64 = 0,
     grab_box: wlr.Box = undefined,
     resize_edges: wlr.Edges = .{},
+    title_bar_grab: bool = false,
 
     pub fn init(server: *Server, output_layout: *wlr.OutputLayout) !Cursor {
         const wlr_cursor = try wlr.Cursor.create();
@@ -70,13 +71,20 @@ pub const Cursor = struct {
     pub fn beginMove(cursor: *Cursor, toplevel: *Toplevel) void {
         cursor.grabbed_view = toplevel;
         cursor.mode = .move;
+        cursor.title_bar_grab = false;
         cursor.grab_x = cursor.wlr_cursor.x - @as(f64, @floatFromInt(toplevel.x));
         cursor.grab_y = cursor.wlr_cursor.y - @as(f64, @floatFromInt(toplevel.y));
+    }
+
+    pub fn beginTitleBarMove(cursor: *Cursor, toplevel: *Toplevel) void {
+        cursor.beginMove(toplevel);
+        cursor.title_bar_grab = true;
     }
 
     pub fn beginResize(cursor: *Cursor, toplevel: *Toplevel, edges: wlr.Edges) void {
         cursor.grabbed_view = toplevel;
         cursor.mode = .resize;
+        cursor.title_bar_grab = false;
         cursor.resize_edges = edges;
 
         const box = toplevel.xdg_toplevel.base.geometry;
@@ -164,13 +172,14 @@ pub const Cursor = struct {
                         new_right = new_left + 1;
                 }
 
-                toplevel.x = new_left - toplevel.xdg_toplevel.base.geometry.x;
-                toplevel.y = new_top - toplevel.xdg_toplevel.base.geometry.y;
-                toplevel.scene_tree.node.setPosition(toplevel.x, toplevel.y);
+                toplevel.setPosition(
+                    new_left - toplevel.xdg_toplevel.base.geometry.x,
+                    new_top - toplevel.xdg_toplevel.base.geometry.y,
+                );
 
                 const new_width = new_right - new_left;
                 const new_height = new_bottom - new_top;
-                _ = toplevel.xdg_toplevel.setSize(new_width, new_height);
+                toplevel.setSize(new_width, new_height);
             },
         }
     }
@@ -182,11 +191,25 @@ pub const Cursor = struct {
         const cursor: *Cursor = @fieldParentPtr("button", listener);
         const server = cursor.server;
 
-        _ = server.seat.pointerNotifyButton(event.time_msec, event.button, event.state);
+        if (event.state == .pressed) {
+            if (server.titleBarAt(cursor.wlr_cursor.x, cursor.wlr_cursor.y)) |toplevel| {
+                focus.activateToplevel(server, toplevel, toplevel.xdg_toplevel.base.surface);
+                cursor.beginTitleBarMove(toplevel);
+                return;
+            }
+        }
+
+        const title_bar_grab = cursor.title_bar_grab;
         if (event.state == .released) {
             std.debug.print("Mouse event: Release\n", .{});
             cursor.mode = .passthrough;
+            cursor.grabbed_view = null;
+            cursor.title_bar_grab = false;
+            if (title_bar_grab) return;
+
+            _ = server.seat.pointerNotifyButton(event.time_msec, event.button, event.state);
         } else if (event.state == .pressed) {
+            _ = server.seat.pointerNotifyButton(event.time_msec, event.button, event.state);
             std.debug.print("Mouse event: Pressed\n", .{});
             if (server.viewAt(cursor.wlr_cursor.x, cursor.wlr_cursor.y)) |res| {
                 focus.activateToplevel(server, res.toplevel, res.surface);

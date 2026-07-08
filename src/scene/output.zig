@@ -13,6 +13,7 @@ const timestamp = @import("../utils/time.zig").timestamp;
 pub const Output = struct {
     server: *Server,
     wlr_output: *wlr.Output,
+    link: wl.list.Link = undefined,
 
     frame: wl.Listener(*wlr.Output) = .init(handleFrame),
     request_state: wl.Listener(*wlr.Output.event.RequestState) = .init(handleRequestState),
@@ -34,19 +35,28 @@ pub const Output = struct {
 
         const scene_output = try server.scene.createSceneOutput(wlr_output);
         server.scene_output_layout.addOutput(layout_output, scene_output);
+        server.outputs.prepend(output);
     }
 
     fn handleFrame(listener: *wl.Listener(*wlr.Output), _: *wlr.Output) void {
         const output: *Output = @fieldParentPtr("frame", listener);
 
         const scene_output = output.server.scene.getSceneOutput(output.wlr_output).?;
+        var now = timestamp();
+        const now_msec = (@as(u64, @intCast(now.sec)) * std.time.ms_per_s) +
+            @as(u64, @intCast(@divTrunc(now.nsec, std.time.ns_per_ms)));
+        const animations_active = output.server.updateAnimations(now_msec);
+
         if (!scene_output.commit(null)) {
             std.log.err("failed to commit scene output {s}", .{output.wlr_output.name});
             return;
         }
 
-        var now = timestamp();
         scene_output.sendFrameDone(&now);
+
+        if (animations_active) {
+            output.wlr_output.scheduleFrame();
+        }
     }
 
     fn handleRequestState(
@@ -63,6 +73,7 @@ pub const Output = struct {
         output.frame.link.remove();
         output.request_state.link.remove();
         output.destroy.link.remove();
+        output.link.remove();
 
         gpa.destroy(output);
     }

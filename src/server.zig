@@ -23,6 +23,7 @@ pub const Server = struct {
     output_layout: *wlr.OutputLayout,
     scene_output_layout: *wlr.SceneOutputLayout,
     new_output: wl.Listener(*wlr.Output) = .init(newOutput),
+    outputs: wl.list.Head(Output, .link) = undefined,
 
     xdg_shell: *wlr.XdgShell,
     new_xdg_toplevel: wl.Listener(*wlr.XdgToplevel) = .init(newXdgToplevel),
@@ -66,6 +67,7 @@ pub const Server = struct {
         _ = try wlr.DataDeviceManager.create(server.wl_server);
 
         server.backend.events.new_output.add(&server.new_output);
+        server.outputs.init();
 
         server.xdg_shell.events.new_toplevel.add(&server.new_xdg_toplevel);
         server.xdg_shell.events.new_popup.add(&server.new_xdg_popup);
@@ -214,6 +216,32 @@ pub const Server = struct {
             }
         }
         return null;
+    }
+
+    pub fn titleBarAt(server: *Server, lx: f64, ly: f64) ?*Toplevel {
+        var it = server.toplevels.iterator(.forward);
+        while (it.next()) |toplevel| {
+            if (toplevel.titleBarContains(lx, ly)) return toplevel;
+        }
+        return null;
+    }
+
+    pub fn updateAnimations(server: *Server, now_msec: u64) bool {
+        var active = false;
+
+        var it = server.toplevels.iterator(.forward);
+        while (it.next()) |toplevel| {
+            active = toplevel.updateAnimations(now_msec) or active;
+        }
+
+        return active;
+    }
+
+    pub fn scheduleFrame(server: *Server) void {
+        var it = server.outputs.iterator(.forward);
+        while (it.next()) |output| {
+            output.wlr_output.scheduleFrame();
+        }
     }
 
     fn newInput(listener: *wl.Listener(*wlr.InputDevice), device: *wlr.InputDevice) void {
