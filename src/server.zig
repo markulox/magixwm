@@ -77,7 +77,7 @@ pub const Server = struct {
         server.backend.events.new_input.add(&server.new_input);
         server.seat.events.request_set_selection.add(&server.request_set_selection);
         server.keyboards.init();
-
+        
         server.cursor.attach();
     }
 
@@ -173,7 +173,6 @@ pub const Server = struct {
 
     fn newXdgPopup(_: *wl.Listener(*wlr.XdgPopup), xdg_popup: *wlr.XdgPopup) void {
         const xdg_surface = xdg_popup.base;
-
         // These asserts are fine since tinywl.zig doesn't support anything else that can
         // make xdg popups (e.g. layer shell).
         const parent = wlr.XdgSurface.tryFromWlrSurface(xdg_popup.parent.?) orelse return;
@@ -239,12 +238,10 @@ pub const Server = struct {
 
     pub fn updateAnimations(server: *Server, now_msec: u64) bool {
         var active = false;
-
         var it = server.toplevels.iterator(.forward);
         while (it.next()) |toplevel| {
             active = toplevel.updateAnimations(now_msec) or active;
         }
-
         return active;
     }
 
@@ -265,7 +262,6 @@ pub const Server = struct {
             .pointer => server.cursor.attachInputDevice(device),
             else => {},
         }
-
         server.seat.setCapabilities(.{
             .pointer = true,
             .keyboard = server.keyboards.length() > 0,
